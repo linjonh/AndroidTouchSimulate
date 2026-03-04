@@ -1,0 +1,5 @@
+{
+  "name": "Android Touch Event Analyzer",
+  "description": "Visualize and analyze Android touch event trajectories, pressure, and timing data.",
+  "requestFramePermissions": []
+}
