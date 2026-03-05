@@ -39,7 +39,7 @@ export default function TouchAnalyzer() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedGestureId, setSelectedGestureId] = useState<string | null>(null);
+  const [selectedGestureIds, setSelectedGestureIds] = useState<string[]>([]);
 
   // Load history from localStorage on mount
   useEffect(() => {
@@ -81,9 +81,9 @@ export default function TouchAnalyzer() {
     }
   }, [rawData]);
 
-  const selectedGesture = useMemo(() => 
-    sequences.find(s => s.id === selectedGestureId), 
-    [sequences, selectedGestureId]
+  const selectedGestures = useMemo(() => 
+    sequences.filter(s => selectedGestureIds.includes(s.id)), 
+    [sequences, selectedGestureIds]
   );
 
   const stats = useMemo(() => {
@@ -124,7 +124,7 @@ export default function TouchAnalyzer() {
     setHistory(prev => [newItem, ...prev]);
     setCurrentSessionId(newId);
     setError(null);
-    setSelectedGestureId(null);
+    setSelectedGestureIds([]);
     setActiveTab('analyzer');
   };
 
@@ -268,7 +268,7 @@ export default function TouchAnalyzer() {
                           key={item.id}
                           onClick={() => {
                             setCurrentSessionId(item.id);
-                            setSelectedGestureId(null);
+                            setSelectedGestureIds([]);
                           }}
                           className={cn(
                             "w-full flex items-center justify-between p-3 border-b border-slate-50 text-left transition-all cursor-pointer group",
@@ -377,37 +377,69 @@ export default function TouchAnalyzer() {
                   {/* Gesture List */}
                   {sequences.length > 0 && (
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-left-4 duration-700">
-                      <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+                      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                         <h3 className="text-sm font-bold text-slate-700">{t('gestureSequence')}</h3>
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-indigo-600 transition-colors">
+                            {selectedGestureIds.length === sequences.length ? t('deselectAll') || 'Deselect All' : t('selectAll') || 'Select All'}
+                          </span>
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            checked={selectedGestureIds.length === sequences.length && sequences.length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedGestureIds(sequences.map(s => s.id));
+                              } else {
+                                setSelectedGestureIds([]);
+                              }
+                            }}
+                          />
+                        </label>
                       </div>
                       <div className="max-h-[400px] overflow-y-auto">
-                        {sequences.map((seq, idx) => (
-                          <button
-                            key={seq.id}
-                            onClick={() => setSelectedGestureId(seq.id)}
-                            className={cn(
-                              "w-full flex items-center justify-between p-4 border-b border-slate-50 text-left transition-all hover:bg-slate-50",
-                              selectedGestureId === seq.id && "bg-indigo-50 border-l-4 border-l-indigo-600"
-                            )}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={cn(
-                                "w-8 h-8 rounded-lg flex items-center justify-center",
-                                seq.type === 'CLICK' ? "bg-blue-100 text-blue-600" : "bg-purple-100 text-purple-600"
-                              )}>
-                                {seq.type === 'CLICK' ? <MousePointer2 size={16} /> : <Move size={16} />}
-                              </div>
-                              <div>
-                                <div className="font-bold text-sm">{seq.type} #{idx + 1}</div>
-                                <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                                  <Clock size={10} />
-                                  {seq.endTime - seq.startTime}ms • {seq.points.length} pts
+                        {sequences.map((seq, idx) => {
+                          const isSelected = selectedGestureIds.includes(seq.id);
+                          return (
+                            <div
+                              key={seq.id}
+                              onClick={() => {
+                                setSelectedGestureIds(prev => 
+                                  prev.includes(seq.id) 
+                                    ? prev.filter(id => id !== seq.id)
+                                    : [...prev, seq.id]
+                                );
+                              }}
+                              className={cn(
+                                "w-full flex items-center justify-between p-4 border-b border-slate-50 text-left transition-all hover:bg-slate-50 cursor-pointer",
+                                isSelected && "bg-indigo-50 border-l-4 border-l-indigo-600"
+                              )}
+                            >
+                              <div className="flex items-center gap-3">
+                                <input 
+                                  type="checkbox"
+                                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                  checked={isSelected}
+                                  readOnly
+                                />
+                                <div className={cn(
+                                  "w-8 h-8 rounded-lg flex items-center justify-center",
+                                  seq.type === 'CLICK' ? "bg-blue-100 text-blue-600" : "bg-purple-100 text-purple-600"
+                                )}>
+                                  {seq.type === 'CLICK' ? <MousePointer2 size={16} /> : <Move size={16} />}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-sm">{seq.type} #{idx + 1}</div>
+                                  <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                                    <Clock size={10} />
+                                    {seq.endTime - seq.startTime}ms • {seq.points.length} pts
+                                  </div>
                                 </div>
                               </div>
+                              <ChevronRight size={16} className={cn("transition-transform", isSelected ? "text-indigo-600 rotate-90" : "text-slate-300")} />
                             </div>
-                            <ChevronRight size={16} className="text-slate-300" />
-                          </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -419,21 +451,33 @@ export default function TouchAnalyzer() {
                   <div className="bg-white p-1 rounded-2xl border border-slate-200 shadow-sm h-[600px]">
                     <TrajectoryMap 
                       sequences={sequences} 
-                      selectedGestureId={selectedGestureId}
-                      onSelectGesture={setSelectedGestureId}
+                      selectedGestureIds={selectedGestureIds}
+                      onSelectGesture={(id) => {
+                        setSelectedGestureIds(prev => 
+                          prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+                        );
+                      }}
                     />
                   </div>
 
                   {/* Details Section */}
-                  {selectedGesture ? (
+                  {selectedGestures.length > 0 ? (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                       <div className="flex items-center gap-3 mb-4">
                         <h2 className="text-xl font-bold">{t('gestureAnalysis')}</h2>
-                        <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded uppercase">
-                          {selectedGesture.type}
-                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedGestures.length === 1 ? (
+                            <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded uppercase">
+                              {selectedGestures[0].type}
+                            </span>
+                          ) : (
+                            <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded uppercase">
+                              {selectedGestures.length} {t('gesturesSelected') || 'Gestures Selected'}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <GestureDetails gesture={selectedGesture} />
+                      <GestureDetails gestures={selectedGestures} />
                     </div>
                   ) : (
                     <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">

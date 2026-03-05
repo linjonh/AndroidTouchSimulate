@@ -7,13 +7,13 @@ import { GestureSequence } from '@/lib/touch-parser';
 
 interface TrajectoryMapProps {
   sequences: GestureSequence[];
-  selectedGestureId: string | null;
+  selectedGestureIds: string[];
   onSelectGesture: (id: string) => void;
 }
 
 export const TrajectoryMap: React.FC<TrajectoryMapProps> = ({ 
   sequences, 
-  selectedGestureId,
+  selectedGestureIds,
   onSelectGesture 
 }) => {
   const { t } = useTranslation();
@@ -51,7 +51,7 @@ export const TrajectoryMap: React.FC<TrajectoryMapProps> = ({
 
     // Draw sequences
     sequences.forEach(seq => {
-      const isSelected = seq.id === selectedGestureId;
+      const isSelected = selectedGestureIds.includes(seq.id);
       
       // Draw path
       svg.append('path')
@@ -97,7 +97,7 @@ export const TrajectoryMap: React.FC<TrajectoryMapProps> = ({
       }
     });
 
-  }, [sequences, selectedGestureId, onSelectGesture]);
+  }, [sequences, selectedGestureIds, onSelectGesture]);
 
   return (
     <div ref={containerRef} className="w-full h-full bg-slate-50 rounded-xl border border-slate-200 overflow-hidden relative">

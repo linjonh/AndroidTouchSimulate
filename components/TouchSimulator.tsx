@@ -13,7 +13,9 @@ import {
   MousePointer2,
   MoveUp,
   Activity,
-  Download
+  Download,
+  FileCode,
+  Terminal
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -47,7 +49,190 @@ export const TouchSimulator: React.FC<TouchSimulatorProps> = ({ onSave }) => {
   const [pressureVar, setPressureVar] = useState(0.02);
   const [seed, setSeed] = useState(1);
 
-  const [selectedGestureId, setSelectedGestureId] = useState<string | null>(null);
+  const [selectedGestureIds, setSelectedGestureIds] = useState<string[]>([]);
+
+  const currentParams = {
+    startX, startY, endX, endY, curveX, duration, steps, jitter, pressureJitter, pressureBase, pressureVar, seed
+  };
+
+  const downloadPythonScript = () => {
+    const script = `
+import json
+import math
+import time
+
+def mulberry32(a):
+    state = [a]
+    def next_val():
+        state[0] = (state[0] + 0x6D2B79F5) & 0xFFFFFFFF
+        t = state[0]
+        t = ((t ^ (t >> 15)) * (t | 1)) & 0xFFFFFFFF
+        t ^= (t + ((t ^ (t >> 7)) * (t | 61))) & 0xFFFFFFFF
+        return ((t ^ (t >> 14)) >> 0) / 4294967296.0
+    return next_val
+
+def generate_touch_data(params):
+    rng = mulberry32(params['seed'])
+    start_time = int(time.time() * 1000)
+    down_time = start_time
+    events = []
+
+    p0 = (params['startX'], params['startY'])
+    p2 = (params['endX'], params['endY'])
+    p1 = (params['curveX'], (params['startY'] + params['endY']) / 2)
+
+    def get_bezier_point(t, p0, p1, p2):
+        x = (1 - t)**2 * p0[0] + 2 * (1 - t) * t * p1[0] + t**2 * p2[0]
+        y = (1 - t)**2 * p0[1] + 2 * (1 - t) * t * p1[1] + t**2 * p2[1]
+        return x, y
+
+    for i in range(params['steps']):
+        t_val = i / (params['steps'] - 1)
+        progress = 1 - (1 - t_val)**3
+        
+        curr_x, curr_y = get_bezier_point(progress, p0, p1, p2)
+        curr_x += (rng() - 0.5) * params['jitter'] * 2
+        curr_y += (rng() - 0.5) * params['jitter'] * 2
+
+        pressure = params['pressureBase'] + params['pressureVar'] * (progress - 0.5)
+        if params['pressureJitter'] > 0:
+            pressure += (rng() - 0.5) * params['pressureJitter']
+        
+        pressure = max(0.01, min(1.0, pressure))
+        
+        action = "ACTION_MOVE"
+        if i == 0:
+            action = "ACTION_DOWN"
+            pressure = min(1.0, pressure + 0.02)
+        elif i == params['steps'] - 1:
+            action = "ACTION_UP"
+
+        event_time = start_time + int(params['duration'] * t_val)
+        
+        events.append({
+            "id": 5000 + i,
+            "gestureType": "SIMULATED",
+            "actionName": action,
+            "x": round(curr_x, 5),
+            "y": round(curr_y, 5),
+            "pressure": round(pressure, 5),
+            "size": round(pressure * 0.15, 5),
+            "eventTime": event_time,
+            "downTime": down_time,
+            "timestamp": event_time + 1000,
+            "historicalEvents": []
+        })
+
+    return {
+        "exportTime": start_time + params['duration'] + 100,
+        "totalEvents": len(events),
+        "events": events
+    }
+
+params = ${JSON.stringify(currentParams, null, 4)}
+data = generate_touch_data(params)
+with open('simulated_touch.json', 'w') as f:
+    json.dump(data, f, indent=2)
+print("Generated simulated_touch.json")
+`;
+    const blob = new Blob([script], { type: 'text/x-python' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'reproduce_touch.py';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadJSScript = () => {
+    const script = `
+const fs = require('fs');
+
+const mulberry32 = (a) => {
+  let state = a;
+  return () => {
+    state = (state + 0x6D2B79F5) | 0;
+    let t = Math.imul(state ^ state >>> 15, state | 1);
+    t = t ^ (t + Math.imul(t ^ t >>> 7, t | 61)) | 0;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+};
+
+function generateTouchData(params) {
+  const rng = mulberry32(params.seed);
+  const startTime = Date.now();
+  const downTime = startTime;
+  const events = [];
+
+  const p0 = [params.startX, params.startY];
+  const p2 = [params.endX, params.endY];
+  const p1 = [params.curveX, (params.startY + params.endY) / 2];
+
+  const getBezierPoint = (t, p0, p1, p2) => {
+    const x = Math.pow(1 - t, 2) * p0[0] + 2 * (1 - t) * t * p1[0] + Math.pow(t, 2) * p2[0];
+    const y = Math.pow(1 - t, 2) * p0[1] + 2 * (1 - t) * t * p1[1] + Math.pow(t, 2) * p2[1];
+    return [x, y];
+  };
+
+  for (let i = 0; i < params.steps; i++) {
+    const tVal = i / (params.steps - 1);
+    const progress = 1 - Math.pow(1 - tVal, 3);
+    
+    let [currX, currY] = getBezierPoint(progress, p0, p1, p2);
+    currX += (rng() - 0.5) * params.jitter * 2;
+    currY += (rng() - 0.5) * params.jitter * 2;
+
+    let pressure = params.pressureBase + params.pressureVar * (progress - 0.5);
+    if (params.pressureJitter > 0) {
+      pressure += (rng() - 0.5) * params.pressureJitter;
+    }
+    pressure = Math.max(0.01, Math.min(1.0, pressure));
+
+    let action = "ACTION_MOVE";
+    if (i === 0) {
+      action = "ACTION_DOWN";
+      pressure = Math.min(1.0, pressure + 0.02);
+    } else if (i === params.steps - 1) {
+      action = "ACTION_UP";
+    }
+
+    const eventTime = startTime + Math.floor(params.duration * tVal);
+
+    events.push({
+      id: 5000 + i,
+      gestureType: "SIMULATED",
+      actionName: action,
+      x: Number(currX.toFixed(5)),
+      y: Number(currY.toFixed(5)),
+      pressure: Number(pressure.toFixed(5)),
+      size: Number((pressure * 0.15).toFixed(5)),
+      eventTime,
+      downTime,
+      timestamp: eventTime + 1000,
+      historicalEvents: []
+    });
+  }
+
+  return {
+    exportTime: startTime + params.duration + 100,
+    totalEvents: events.length,
+    events: events
+  };
+}
+
+const params = ${JSON.stringify(currentParams, null, 2)};
+const data = generateTouchData(params);
+fs.writeFileSync('simulated_touch.json', JSON.stringify(data, null, 2));
+console.log("Generated simulated_touch.json");
+`;
+    const blob = new Blob([script], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'reproduce_touch.js';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Derive distance/angle from end points
   const { distance, angle } = useMemo(() => {
@@ -155,11 +340,6 @@ export const TouchSimulator: React.FC<TouchSimulatorProps> = ({ onSave }) => {
     return processTouchEvents(simulatedData);
   }, [simulatedData]);
 
-  const selectedGesture = useMemo(() => 
-    sequences.find(s => s.id === selectedGestureId), 
-    [sequences, selectedGestureId]
-  );
-
   const applyPreset = (type: 'right-swipe' | 'left-swipe' | 'click') => {
     if (type === 'right-swipe') {
       setStartX(350); setStartY(1900);
@@ -266,6 +446,23 @@ export const TouchSimulator: React.FC<TouchSimulatorProps> = ({ onSave }) => {
               <Download size={18} />
             </button>
           </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button 
+              onClick={downloadPythonScript}
+              className="flex items-center justify-center gap-2 p-2.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all"
+            >
+              <Terminal size={14} className="text-blue-500" />
+              Python
+            </button>
+            <button 
+              onClick={downloadJSScript}
+              className="flex items-center justify-center gap-2 p-2.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all"
+            >
+              <FileCode size={14} className="text-yellow-500" />
+              JavaScript
+            </button>
+          </div>
         </div>
       </div>
 
@@ -274,8 +471,12 @@ export const TouchSimulator: React.FC<TouchSimulatorProps> = ({ onSave }) => {
         <div className="bg-white p-1 rounded-2xl border border-slate-200 shadow-sm h-[600px] relative group">
           <TrajectoryMap 
             sequences={sequences} 
-            selectedGestureId={selectedGestureId}
-            onSelectGesture={setSelectedGestureId}
+            selectedGestureIds={selectedGestureIds}
+            onSelectGesture={(id) => {
+              setSelectedGestureIds(prev => 
+                prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+              );
+            }}
           />
           <div className="absolute top-6 left-6 pointer-events-none">
             <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-full border border-slate-200 flex items-center gap-2 shadow-sm">
@@ -285,13 +486,13 @@ export const TouchSimulator: React.FC<TouchSimulatorProps> = ({ onSave }) => {
           </div>
         </div>
 
-        {sequences[0] && (
+        {sequences.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
               <Activity size={20} className="text-indigo-600" />
               {t('simulatedDynamics')}
             </h2>
-            <GestureDetails gesture={sequences[0]} />
+            <GestureDetails gestures={selectedGestureIds.length > 0 ? sequences.filter(s => selectedGestureIds.includes(s.id)) : sequences} />
           </div>
         )}
       </div>

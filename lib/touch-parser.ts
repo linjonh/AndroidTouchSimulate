@@ -68,6 +68,7 @@ export interface GestureSequence {
     pressure: number;
     size: number;
     time: number;
+    rawEvent?: any;
   }[];
 }
 
@@ -99,7 +100,8 @@ export function processTouchEvents(data: TouchDataExport): GestureSequence[] {
             y: h.y,
             pressure: h.pressure,
             size: h.size,
-            time: h.eventTime
+            time: h.eventTime,
+            rawEvent: h
           });
         });
       }
@@ -110,7 +112,8 @@ export function processTouchEvents(data: TouchDataExport): GestureSequence[] {
         y: event.y,
         pressure: event.pressure,
         size: event.size,
-        time: event.eventTime
+        time: event.eventTime,
+        rawEvent: event
       });
 
       currentSequence.endTime = event.eventTime;

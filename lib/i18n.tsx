@@ -68,13 +68,39 @@ const translations: Translations = {
   saveToHistory: { zh: '保存到历史记录', en: 'Save to History' },
   download: { zh: '下载', en: 'Download' },
   downloadJson: { zh: '下载 JSON', en: 'Download JSON' },
+  downloadPython: { zh: '下载 Python 脚本', en: 'Download Python Script' },
+  downloadJS: { zh: '下载 JS 脚本', en: 'Download JS Script' },
   delete: { zh: '删除', en: 'Delete' },
   simulated: { zh: '模拟', en: 'Simulated' },
+  
+  // Charts
+  pressureProfile: { zh: '压力分布', en: 'Pressure Profile' },
+  sizeProfile: { zh: '大小分布', en: 'Size Profile' },
+  velocityProfile: { zh: '速度分布 (px/ms)', en: 'Velocity Profile (px/ms)' },
+  coordinateDynamics: { zh: '坐标动态 (X/Y)', en: 'Coordinate Dynamics (X/Y)' },
+  orientationProfile: { zh: '方向角分布', en: 'Orientation Profile' },
+  
+  // Analysis Conclusion
+  dataRealism: { zh: '数据真实性评估', en: 'Data Realism Assessment' },
+  realismConclusion: { zh: '评估结论', en: 'Assessment Conclusion' },
+  realismScore: { zh: '真实度得分', en: 'Realism Score' },
+  samplingRate: { zh: '采样率', en: 'Sampling Rate' },
+  smoothness: { zh: '轨迹平滑度', en: 'Trajectory Smoothness' },
+  pressureConsistency: { zh: '压力一致性', en: 'Pressure Consistency' },
+  lifecycleIntegrity: { zh: '生命周期完整性', en: 'Lifecycle Integrity' },
+  
+  // Conclusion Tags
+  conclusionReal: { zh: '高度疑似真实数据', en: 'Highly Likely Real Data' },
+  conclusionSimulated: { zh: '明显模拟迹象', en: 'Clear Signs of Simulation' },
+  conclusionIncomplete: { zh: '数据不完整或有偏差', en: 'Incomplete or Biased Data' },
+  
+  // Conclusion Details
+  conclusionRealDesc: { zh: '数据包含自然的微抖动、稳定的采样间隔和完整的 Android MotionEvent 历史记录。', en: 'Data contains natural micro-jitter, stable sampling intervals, and complete Android MotionEvent history.' },
+  conclusionSimulatedDesc: { zh: '数据过于平滑，压力变化呈数学规律，或缺乏物理传感器特有的随机噪声。', en: 'Data is too smooth, pressure changes follow mathematical patterns, or lacks random noise characteristic of physical sensors.' },
+  conclusionIncompleteDesc: { zh: '缺少 ACTION_DOWN/UP 事件，或者采样率极不稳定，可能导致轨迹还原失真。', en: 'Missing ACTION_DOWN/UP events, or sampling rate is highly unstable, which may cause trajectory distortion.' },
 
   // Gesture Details
   trajectory: { zh: '轨迹', en: 'Trajectory' },
-  pressureProfile: { zh: '压力分布', en: 'Pressure Profile' },
-  sizeProfile: { zh: '大小分布', en: 'Size Profile' },
   velocity: { zh: '速度', en: 'Velocity' },
   time: { zh: '时间', en: 'Time' },
   pressure: { zh: '压力', en: 'Pressure' },
@@ -84,6 +110,16 @@ const translations: Translations = {
   startLabel: { zh: '起点 (按下)', en: 'Start (Down)' },
   endLabel: { zh: '终点 (抬起)', en: 'End (Up)' },
   timeMs: { zh: '时间 (ms)', en: 'Time (ms)' },
+  rawEventData: { zh: '原始事件数据', en: 'Raw Event Data' },
+  eventSequence: { zh: '事件序列', en: 'Event Sequence' },
+  actionSequence: { zh: '动作序列 (Down/Move/Up)', en: 'Action Sequence (Down/Move/Up)' },
+  copyJson: { zh: '复制 JSON', en: 'Copy JSON' },
+  copied: { zh: '已复制', en: 'Copied' },
+  gesturesSelected: { zh: '个手势已选择', en: 'Gestures Selected' },
+  selectAll: { zh: '全选', en: 'Select All' },
+  deselectAll: { zh: '取消全选', en: 'Deselect All' },
+  multiRealismDesc: { zh: '对多个手势的一致性和类人模式进行综合分析。', en: 'Comprehensive analysis of multiple gestures for consistency and human-like patterns.' },
+  avgRealismScore: { zh: '平均真实度', en: 'Avg Score' },
 };
 
 interface LanguageContextType {
