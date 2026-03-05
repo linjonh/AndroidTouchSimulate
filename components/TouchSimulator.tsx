@@ -47,12 +47,15 @@ export const TouchSimulator: React.FC<TouchSimulatorProps> = ({ onSave }) => {
   const [pressureJitter, setPressureJitter] = useState(0);
   const [pressureBase, setPressureBase] = useState(0.18);
   const [pressureVar, setPressureVar] = useState(0.02);
+  const [sizeBase, setSizeBase] = useState(0.03);
+  const [sizeVar, setSizeVar] = useState(0.005);
+  const [linkSizeAndPressure, setLinkSizeAndPressure] = useState(true);
   const [seed, setSeed] = useState(1);
 
   const [selectedGestureIds, setSelectedGestureIds] = useState<string[]>([]);
 
   const currentParams = {
-    startX, startY, endX, endY, curveX, duration, steps, jitter, pressureJitter, pressureBase, pressureVar, seed
+    startX, startY, endX, endY, curveX, duration, steps, jitter, pressureJitter, pressureBase, pressureVar, sizeBase, sizeVar, linkSizeAndPressure, seed
   };
 
   const downloadPythonScript = () => {
@@ -100,6 +103,15 @@ def generate_touch_data(params):
         
         pressure = max(0.01, min(1.0, pressure))
         
+        if params['linkSizeAndPressure']:
+            size = pressure * (params['sizeBase'] / max(0.01, params['pressureBase']))
+        else:
+            size = params['sizeBase'] + params['sizeVar'] * (progress - 0.5)
+            if params['pressureJitter'] > 0:
+                size += (rng() - 0.5) * (params['pressureJitter'] * (params['sizeBase'] / max(0.01, params['pressureBase'])))
+        
+        size = max(0.001, min(1.0, size))
+
         action = "ACTION_MOVE"
         if i == 0:
             action = "ACTION_DOWN"
@@ -116,7 +128,7 @@ def generate_touch_data(params):
             "x": round(curr_x, 5),
             "y": round(curr_y, 5),
             "pressure": round(pressure, 5),
-            "size": round(pressure * 0.15, 5),
+            "size": round(size, 5),
             "eventTime": event_time,
             "downTime": down_time,
             "timestamp": event_time + 1000,
@@ -188,6 +200,17 @@ function generateTouchData(params) {
     }
     pressure = Math.max(0.01, Math.min(1.0, pressure));
 
+    let size;
+    if (params.linkSizeAndPressure) {
+      size = pressure * (params.sizeBase / Math.max(0.01, params.pressureBase));
+    } else {
+      size = params.sizeBase + params.sizeVar * (progress - 0.5);
+      if (params.pressureJitter > 0) {
+        size += (rng() - 0.5) * (params.pressureJitter * (params.sizeBase / Math.max(0.01, params.pressureBase)));
+      }
+    }
+    size = Math.max(0.001, Math.min(1.0, size));
+
     let action = "ACTION_MOVE";
     if (i === 0) {
       action = "ACTION_DOWN";
@@ -205,7 +228,7 @@ function generateTouchData(params) {
       x: Number(currX.toFixed(5)),
       y: Number(currY.toFixed(5)),
       pressure: Number(pressure.toFixed(5)),
-      size: Number((pressure * 0.15).toFixed(5)),
+      size: Number(size.toFixed(5)),
       eventTime,
       downTime,
       timestamp: eventTime + 1000,
@@ -297,6 +320,17 @@ console.log("Generated simulated_touch.json");
       
       pressure = Math.max(0.01, Math.min(1.0, pressure));
 
+      let size;
+      if (linkSizeAndPressure) {
+        size = pressure * (sizeBase / Math.max(0.01, pressureBase));
+      } else {
+        size = sizeBase + sizeVar * (progress - 0.5);
+        if (pressureJitter > 0) {
+          size += (rng() - 0.5) * (pressureJitter * (sizeBase / Math.max(0.01, pressureBase)));
+        }
+      }
+      size = Math.max(0.001, Math.min(1.0, size));
+
       if (i === 0) {
         action = "ACTION_DOWN";
         // Slightly higher pressure on initial contact is common
@@ -315,7 +349,7 @@ console.log("Generated simulated_touch.json");
         x: Number(currX.toFixed(5)),
         y: Number(currY.toFixed(5)),
         pressure: Number(pressure.toFixed(5)),
-        size: Number((pressure * 0.15).toFixed(5)),
+        size: Number(size.toFixed(5)),
         eventTime,
         downTime,
         timestamp: eventTime + 1000,
@@ -323,7 +357,7 @@ console.log("Generated simulated_touch.json");
           x: Number((currX - 1).toFixed(5)),
           y: Number((currY + 5).toFixed(5)),
           pressure: Number((pressure * 0.98).toFixed(5)),
-          size: Number((pressure * 0.15).toFixed(5)),
+          size: Number((size * 0.98).toFixed(5)),
           eventTime: eventTime - 8
         }] : []
       });
@@ -334,7 +368,7 @@ console.log("Generated simulated_touch.json");
       totalEvents: events.length,
       events: events
     } as TouchDataExport;
-  }, [startX, startY, endX, endY, curveX, duration, steps, jitter, pressureJitter, pressureBase, pressureVar, seed]);
+  }, [startX, startY, endX, endY, curveX, duration, steps, jitter, pressureJitter, pressureBase, pressureVar, sizeBase, sizeVar, linkSizeAndPressure, seed]);
 
   const sequences = useMemo(() => {
     return processTouchEvents(simulatedData);
@@ -405,20 +439,71 @@ console.log("Generated simulated_touch.json");
           </div>
 
           <div className="space-y-4">
-            <ControlSlider label={t('startX')} value={startX} min={0} max={1080} onChange={setStartX} />
-            <ControlSlider label={t('startY')} value={startY} min={0} max={2400} onChange={setStartY} />
-            <ControlSlider label={t('endX')} value={endX} min={0} max={1080} onChange={setEndX} />
-            <ControlSlider label={t('endY')} value={endY} min={0} max={2400} onChange={setEndY} />
+            <ControlSlider label={t('startX')} description={t('startXDesc')} value={startX} min={0} max={1080} onChange={setStartX} />
+            <ControlSlider label={t('startY')} description={t('startYDesc')} value={startY} min={0} max={2400} onChange={setStartY} />
+            <ControlSlider label={t('endX')} description={t('endXDesc')} value={endX} min={0} max={1080} onChange={setEndX} />
+            <ControlSlider label={t('endY')} description={t('endYDesc')} value={endY} min={0} max={2400} onChange={setEndY} />
             <div className="grid grid-cols-2 gap-4">
-              <ControlSlider label={t('distance')} value={distance} min={0} max={2500} onChange={handleDistanceChange} color="accent-emerald-500" />
-              <ControlSlider label={t('angle')} value={angle} min={-180} max={180} onChange={handleAngleChange} color="accent-emerald-500" />
+              <ControlSlider label={t('distance')} description={t('distanceDesc')} value={distance} min={0} max={2500} onChange={handleDistanceChange} color="accent-emerald-500" />
+              <ControlSlider label={t('angle')} description={t('angleDesc')} value={angle} min={-180} max={180} onChange={handleAngleChange} color="accent-emerald-500" />
             </div>
-            <ControlSlider label={t('curveControl')} value={curveX} min={-500} max={1500} onChange={setCurveX} color="accent-orange-500" />
-            <ControlSlider label={t('duration')} value={duration} min={50} max={2000} onChange={setDuration} color="accent-blue-500" />
-            <ControlSlider label={t('steps')} value={steps} min={5} max={100} onChange={setSteps} color="accent-slate-500" />
+            <ControlSlider label={t('curveControl')} description={t('curveControlDesc')} value={curveX} min={-500} max={1500} onChange={setCurveX} color="accent-orange-500" />
+            <ControlSlider label={t('duration')} description={t('durationDesc')} value={duration} min={50} max={2000} onChange={setDuration} color="accent-blue-500" />
+            <ControlSlider label={t('steps')} description={t('stepsDesc')} value={steps} min={5} max={100} onChange={setSteps} color="accent-slate-500" />
             <div className="grid grid-cols-2 gap-4">
-              <ControlSlider label={t('jitter')} value={jitter} min={0} max={10} step={0.1} onChange={setJitter} color="accent-red-500" />
-              <ControlSlider label={t('pressureJitter')} value={pressureJitter} min={0} max={0.5} step={0.01} onChange={setPressureJitter} color="accent-red-500" />
+              <ControlSlider label={t('jitter')} description={t('jitterDesc')} value={jitter} min={0} max={10} step={0.1} onChange={setJitter} color="accent-red-500" />
+              <ControlSlider label={t('pressureJitter')} description={t('pressureJitterDesc')} value={pressureJitter} min={0} max={0.5} step={0.01} onChange={setPressureJitter} color="accent-red-500" />
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 space-y-4">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('linkSizeAndPressure')}</span>
+                  <button 
+                    onClick={() => setLinkSizeAndPressure(!linkSizeAndPressure)}
+                    className={cn(
+                      "w-10 h-5 rounded-full transition-all relative",
+                      linkSizeAndPressure ? "bg-indigo-600" : "bg-slate-200"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all",
+                      linkSizeAndPressure ? "left-5.5" : "left-0.5"
+                    )} />
+                  </button>
+                </div>
+                <span className="text-[9px] text-slate-400 leading-tight">{t('linkSizeAndPressureDesc')}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <ControlSlider label={t('pressureBase')} description={t('pressureBaseDesc')} value={pressureBase} min={0.01} max={1} step={0.01} onChange={setPressureBase} color="accent-blue-500" />
+                <ControlSlider label={t('pressureVar')} description={t('pressureVarDesc')} value={pressureVar} min={-0.5} max={0.5} step={0.01} onChange={setPressureVar} color="accent-blue-400" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <ControlSlider 
+                  label={t('sizeBase')} 
+                  description={t('sizeBaseDesc')}
+                  value={sizeBase} 
+                  min={0.001} 
+                  max={0.5} 
+                  step={0.001} 
+                  onChange={setSizeBase} 
+                  color="accent-purple-500" 
+                  disabled={linkSizeAndPressure}
+                />
+                <ControlSlider 
+                  label={t('sizeVar')} 
+                  description={t('sizeVarDesc')}
+                  value={sizeVar} 
+                  min={-0.1} 
+                  max={0.1} 
+                  step={0.001} 
+                  onChange={setSizeVar} 
+                  color="accent-purple-400" 
+                  disabled={linkSizeAndPressure}
+                />
+              </div>
             </div>
           </div>
 
@@ -500,8 +585,8 @@ console.log("Generated simulated_touch.json");
   );
 };
 
-const ControlSlider = ({ label, value, min, max, step = 1, onChange, color = "accent-indigo-600" }: any) => (
-  <div className="space-y-2">
+const ControlSlider = ({ label, description, value, min, max, step = 1, onChange, color = "accent-indigo-600", disabled = false }: any) => (
+  <div className={cn("space-y-1", disabled && "opacity-40 pointer-events-none")}>
     <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
       <span>{label}</span>
       <span className="text-slate-900">{value}</span>
@@ -512,11 +597,15 @@ const ControlSlider = ({ label, value, min, max, step = 1, onChange, color = "ac
       max={max} 
       step={step}
       value={value} 
+      disabled={disabled}
       onChange={(e) => onChange(Number(e.target.value))}
       className={cn(
         "w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-slate-100",
         color
       )}
     />
+    {description && (
+      <p className="text-[9px] text-slate-400 leading-tight">{description}</p>
+    )}
   </div>
 );
