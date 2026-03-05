@@ -254,13 +254,13 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Pressure Chart */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm min-w-0">
               <h3 className="text-sm font-medium text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
                 <Activity size={14} className="text-blue-500" />
                 {t('pressureProfile')}
               </h3>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="time" hide />
@@ -297,13 +297,13 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
             </div>
 
             {/* Size Chart */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm min-w-0">
               <h3 className="text-sm font-medium text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
                 <Zap size={14} className="text-purple-500" />
                 {t('sizeProfile')}
               </h3>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="time" hide />
@@ -340,13 +340,13 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
             </div>
 
             {/* Coordinate Dynamics Chart */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm min-w-0">
               <h3 className="text-sm font-medium text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
                 <Move size={14} className="text-rose-500" />
                 {t('coordinateDynamics')}
               </h3>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="time" hide />
@@ -367,13 +367,13 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
             </div>
 
             {/* Timing Distribution Chart */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm min-w-0">
               <h3 className="text-sm font-medium text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
                 <Clock size={14} className="text-amber-500" />
                 {t('samplingRate')}
               </h3>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <ScatterChart>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="time" hide />
@@ -399,13 +399,13 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
           </div>
           
           {/* Action Sequence Chart */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mt-4">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mt-4 min-w-0">
             <h3 className="text-sm font-medium text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
               <ListTree size={14} className="text-indigo-500" />
               {t('actionSequence')}
             </h3>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-48 w-full">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="time" hide />

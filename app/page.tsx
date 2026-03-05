@@ -59,7 +59,24 @@ export default function TouchAnalyzer() {
 
   // Save history to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('touch_trace_history', JSON.stringify(history));
+    if (history.length === 0) {
+      localStorage.removeItem('touch_trace_history');
+      return;
+    }
+    try {
+      localStorage.setItem('touch_trace_history', JSON.stringify(history));
+    } catch (e) {
+      if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+        // If quota exceeded, remove the oldest item and try again
+        setHistory(prev => {
+          if (prev.length <= 1) return prev;
+          return prev.slice(0, -1);
+        });
+        console.warn('LocalStorage quota exceeded, removing oldest history item');
+      } else {
+        console.error('Failed to save history', e);
+      }
+    }
   }, [history]);
 
   const rawData = useMemo(() => {
