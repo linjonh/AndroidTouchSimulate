@@ -31,8 +31,21 @@ import {
   Copy,
   Check,
   Clock,
-  ListTree
+  ListTree,
+  Maximize2,
+  Minimize2,
+  X,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Hand
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  TransformWrapper, 
+  TransformComponent, 
+  useTransformContext 
+} from 'react-zoom-pan-pinch';
 import { cn } from '@/lib/utils';
 
 interface GestureDetailsProps {
@@ -48,6 +61,7 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'analytics' | 'raw'>('analytics');
   const [copied, setCopied] = useState(false);
+  const [fullscreenChart, setFullscreenChart] = useState<string | null>(null);
   
   const isMulti = gestures.length > 1;
 
@@ -165,6 +179,23 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
       if (gesture.type !== 'UNKNOWN') score += 25;
       else reasons.push("Incomplete lifecycle (Missing Down/Up)");
 
+      // 5. Click Drift (Human factor)
+      const totalDx = points[points.length - 1].x - points[0].x;
+      const totalDy = points[points.length - 1].y - points[0].y;
+      const totalDist = Math.sqrt(totalDx * totalDx + totalDy * totalDy);
+      const totalDuration = points[points.length - 1].time - points[0].time;
+      
+      if (totalDuration < 200) { // Potential click
+        if (totalDist < 0.1) {
+          score -= 20;
+          reasons.push("Perfectly zero-distance click (Simulated)");
+        } else if (totalDist > 30) {
+          reasons.push("High-distance click (Likely a flick)");
+        } else if (totalDist >= 1 && totalDist <= 20) {
+          score += 10; // Good human-like click drift
+        }
+      }
+
       let conclusion: 'real' | 'simulated' | 'incomplete' = 'real';
       if (score < 40) conclusion = 'simulated';
       else if (score < 75) conclusion = 'incomplete';
@@ -254,157 +285,149 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Pressure Chart */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm min-w-0">
-              <h3 className="text-sm font-medium text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
-                <Activity size={14} className="text-blue-500" />
-                {t('pressureProfile')}
-              </h3>
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="time" hide />
-                    <YAxis domain={[0, 'auto']} hide />
-                    <Tooltip 
-                      labelFormatter={(val) => `${t('time')}: ${val}ms`}
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+            <ChartCard 
+              title={t('pressureProfile')} 
+              icon={<Activity size={14} className="text-blue-500" />}
+              onFullscreen={() => setFullscreenChart('pressure')}
+            >
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="time" hide />
+                  <YAxis domain={[0, 'auto']} hide />
+                  <Tooltip 
+                    labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                  {gestures.map((_, i) => (
+                    <Line 
+                      key={i}
+                      type="monotone" 
+                      dataKey={`pressure_${i}`} 
+                      stroke={COLORS[i % COLORS.length]} 
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls
                     />
-                    {gestures.map((_, i) => (
-                      <Line 
-                        key={i}
-                        type="monotone" 
-                        dataKey={`pressure_${i}`} 
-                        stroke={COLORS[i % COLORS.length]} 
-                        strokeWidth={2}
-                        dot={false}
-                        connectNulls
-                      />
-                    ))}
-                    {markers.map((m, idx) => (
-                      <ReferenceDot 
-                        key={idx} 
-                        x={m.time} 
-                        y={m.pressure} 
-                        r={3} 
-                        fill={m.action === 'ACTION_DOWN' ? '#10b981' : '#ef4444'} 
-                        stroke="white" 
-                        strokeWidth={1.5}
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+                  ))}
+                  {markers.map((m, idx) => (
+                    <ReferenceDot 
+                      key={idx} 
+                      x={m.time} 
+                      y={m.pressure} 
+                      r={3} 
+                      fill={m.action === 'ACTION_DOWN' ? '#10b981' : '#ef4444'} 
+                      stroke="white" 
+                      strokeWidth={1.5}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
 
             {/* Size Chart */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm min-w-0">
-              <h3 className="text-sm font-medium text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
-                <Zap size={14} className="text-purple-500" />
-                {t('sizeProfile')}
-              </h3>
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="time" hide />
-                    <YAxis domain={[0, 'auto']} hide />
-                    <Tooltip 
-                      labelFormatter={(val) => `${t('time')}: ${val}ms`}
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+            <ChartCard 
+              title={t('sizeProfile')} 
+              icon={<Zap size={14} className="text-purple-500" />}
+              onFullscreen={() => setFullscreenChart('size')}
+            >
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="time" hide />
+                  <YAxis domain={[0, 'auto']} hide />
+                  <Tooltip 
+                    labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                  {gestures.map((_, i) => (
+                    <Line 
+                      key={i}
+                      type="monotone" 
+                      dataKey={`size_${i}`} 
+                      stroke={COLORS[i % COLORS.length]} 
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls
                     />
-                    {gestures.map((_, i) => (
-                      <Line 
-                        key={i}
-                        type="monotone" 
-                        dataKey={`size_${i}`} 
-                        stroke={COLORS[i % COLORS.length]} 
-                        strokeWidth={2}
-                        dot={false}
-                        connectNulls
-                      />
-                    ))}
-                    {markers.map((m, idx) => (
-                      <ReferenceDot 
-                        key={idx} 
-                        x={m.time} 
-                        y={m.size} 
-                        r={3} 
-                        fill={m.action === 'ACTION_DOWN' ? '#10b981' : '#ef4444'} 
-                        stroke="white" 
-                        strokeWidth={1.5}
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+                  ))}
+                  {markers.map((m, idx) => (
+                    <ReferenceDot 
+                      key={idx} 
+                      x={m.time} 
+                      y={m.size} 
+                      r={3} 
+                      fill={m.action === 'ACTION_DOWN' ? '#10b981' : '#ef4444'} 
+                      stroke="white" 
+                      strokeWidth={1.5}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
 
             {/* Coordinate Dynamics Chart */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm min-w-0">
-              <h3 className="text-sm font-medium text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
-                <Move size={14} className="text-rose-500" />
-                {t('coordinateDynamics')}
-              </h3>
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="time" hide />
-                    <YAxis domain={['auto', 'auto']} hide />
-                    <Tooltip 
-                      labelFormatter={(val) => `${t('time')}: ${val}ms`}
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    />
-                    {gestures.map((_, i) => (
-                      <React.Fragment key={i}>
-                        <Line type="monotone" dataKey={`x_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} dot={false} connectNulls />
-                        <Line type="monotone" dataKey={`y_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} strokeDasharray="5 5" dot={false} connectNulls />
-                      </React.Fragment>
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+            <ChartCard 
+              title={t('coordinateDynamics')} 
+              icon={<Move size={14} className="text-rose-500" />}
+              onFullscreen={() => setFullscreenChart('coordinates')}
+            >
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="time" hide />
+                  <YAxis domain={['auto', 'auto']} hide />
+                  <Tooltip 
+                    labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                  {gestures.map((_, i) => (
+                    <React.Fragment key={i}>
+                      <Line type="monotone" dataKey={`x_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} dot={false} connectNulls />
+                      <Line type="monotone" dataKey={`y_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} strokeDasharray="5 5" dot={false} connectNulls />
+                    </React.Fragment>
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
 
             {/* Timing Distribution Chart */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm min-w-0">
-              <h3 className="text-sm font-medium text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
-                <Clock size={14} className="text-amber-500" />
-                {t('samplingRate')}
-              </h3>
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <ScatterChart>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="time" hide />
-                    <YAxis dataKey="interval" hide />
-                    <ZAxis range={[20, 100]} />
-                    <Tooltip 
-                      cursor={{ strokeDasharray: '3 3' }}
-                      labelFormatter={(val) => `${t('time')}: ${val}ms`}
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+            <ChartCard 
+              title={t('samplingRate')} 
+              icon={<Clock size={14} className="text-amber-500" />}
+              onFullscreen={() => setFullscreenChart('timing')}
+            >
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <ScatterChart>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="time" hide />
+                  <YAxis dataKey="interval" hide />
+                  <ZAxis range={[20, 100]} />
+                  <Tooltip 
+                    cursor={{ strokeDasharray: '3 3' }}
+                    labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                  {gestures.map((_, i) => (
+                    <Scatter 
+                      key={i}
+                      name={`G${i+1}`} 
+                      data={chartData.filter(d => d[`interval_${i}`] > 0).map(d => ({ time: d.time, interval: d[`interval_${i}`] }))} 
+                      fill={COLORS[i % COLORS.length]} 
                     />
-                    {gestures.map((_, i) => (
-                      <Scatter 
-                        key={i}
-                        name={`G${i+1}`} 
-                        data={chartData.filter(d => d[`interval_${i}`] > 0).map(d => ({ time: d.time, interval: d[`interval_${i}`] }))} 
-                        fill={COLORS[i % COLORS.length]} 
-                      />
-                    ))}
-                  </ScatterChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+                  ))}
+                </ScatterChart>
+              </ResponsiveContainer>
+            </ChartCard>
           </div>
           
           {/* Action Sequence Chart */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mt-4 min-w-0">
-            <h3 className="text-sm font-medium text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
-              <ListTree size={14} className="text-indigo-500" />
-              {t('actionSequence')}
-            </h3>
-            <div className="h-48 w-full">
+          <div className="mt-4">
+            <ChartCard 
+              title={t('actionSequence')} 
+              icon={<ListTree size={14} className="text-indigo-500" />}
+              onFullscreen={() => setFullscreenChart('actions')}
+            >
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -432,7 +455,7 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
                   ))}
                 </LineChart>
               </ResponsiveContainer>
-            </div>
+            </ChartCard>
           </div>
 
           {!isMulti && (
@@ -487,6 +510,308 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
           </div>
         </div>
       )}
+
+      {/* Fullscreen Overlay */}
+      <AnimatePresence>
+        {fullscreenChart && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-8"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-6xl h-full max-h-[80vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative"
+            >
+              <button 
+                onClick={() => setFullscreenChart(null)}
+                className="absolute top-4 right-4 z-10 p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 hover:text-slate-700 transition-all"
+              >
+                <X size={20} />
+              </button>
+              
+              <div className="p-6 h-full">
+                <TransformWrapper
+                  initialScale={1}
+                  minScale={0.5}
+                  maxScale={10}
+                  centerOnInit
+                >
+                  {(utils) => (
+                    <div className="relative w-full h-full">
+                      <ZoomControls utils={utils} />
+                      <TransformComponent
+                        wrapperStyle={{ width: '100%', height: '100%' }}
+                        contentStyle={{ width: '100%', height: '100%' }}
+                      >
+                      <div className="w-full h-full cursor-grab active:cursor-grabbing">
+                        {fullscreenChart === 'pressure' && (
+                          <ChartCard 
+                            title={t('pressureProfile')} 
+                            icon={<Activity size={14} className="text-blue-500" />}
+                            onFullscreen={() => setFullscreenChart(null)}
+                            isFullscreen
+                          >
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="time" />
+                                <YAxis domain={[0, 'auto']} />
+                                <Tooltip 
+                                  labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
+                                {gestures.map((_, i) => (
+                                  <Line 
+                                    key={i}
+                                    type="monotone" 
+                                    dataKey={`pressure_${i}`} 
+                                    stroke={COLORS[i % COLORS.length]} 
+                                    strokeWidth={3}
+                                    dot={false}
+                                    connectNulls
+                                  />
+                                ))}
+                                {markers.map((m, idx) => (
+                                  <ReferenceDot 
+                                    key={idx} 
+                                    x={m.time} 
+                                    y={m.pressure} 
+                                    r={5} 
+                                    fill={m.action === 'ACTION_DOWN' ? '#10b981' : '#ef4444'} 
+                                    stroke="white" 
+                                    strokeWidth={2}
+                                  />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </ChartCard>
+                        )}
+
+                        {fullscreenChart === 'size' && (
+                          <ChartCard 
+                            title={t('sizeProfile')} 
+                            icon={<Zap size={14} className="text-purple-500" />}
+                            onFullscreen={() => setFullscreenChart(null)}
+                            isFullscreen
+                          >
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="time" />
+                                <YAxis domain={[0, 'auto']} />
+                                <Tooltip 
+                                  labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
+                                {gestures.map((_, i) => (
+                                  <Line 
+                                    key={i}
+                                    type="monotone" 
+                                    dataKey={`size_${i}`} 
+                                    stroke={COLORS[i % COLORS.length]} 
+                                    strokeWidth={3}
+                                    dot={false}
+                                    connectNulls
+                                  />
+                                ))}
+                                {markers.map((m, idx) => (
+                                  <ReferenceDot 
+                                    key={idx} 
+                                    x={m.time} 
+                                    y={m.size} 
+                                    r={5} 
+                                    fill={m.action === 'ACTION_DOWN' ? '#10b981' : '#ef4444'} 
+                                    stroke="white" 
+                                    strokeWidth={2}
+                                  />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </ChartCard>
+                        )}
+
+                        {fullscreenChart === 'coordinates' && (
+                          <ChartCard 
+                            title={t('coordinateDynamics')} 
+                            icon={<Move size={14} className="text-rose-500" />}
+                            onFullscreen={() => setFullscreenChart(null)}
+                            isFullscreen
+                          >
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="time" />
+                                <YAxis domain={['auto', 'auto']} />
+                                <Tooltip 
+                                  labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
+                                {gestures.map((_, i) => (
+                                  <React.Fragment key={i}>
+                                    <Line type="monotone" dataKey={`x_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} connectNulls />
+                                    <Line type="monotone" dataKey={`y_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={2} strokeDasharray="5 5" dot={false} connectNulls />
+                                  </React.Fragment>
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </ChartCard>
+                        )}
+
+                        {fullscreenChart === 'timing' && (
+                          <ChartCard 
+                            title={t('samplingRate')} 
+                            icon={<Clock size={14} className="text-amber-500" />}
+                            onFullscreen={() => setFullscreenChart(null)}
+                            isFullscreen
+                          >
+                            <ResponsiveContainer width="100%" height="100%">
+                              <ScatterChart>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="time" />
+                                <YAxis dataKey="interval" />
+                                <ZAxis range={[50, 200]} />
+                                <Tooltip 
+                                  cursor={{ strokeDasharray: '3 3' }}
+                                  labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
+                                {gestures.map((_, i) => (
+                                  <Scatter 
+                                    key={i}
+                                    name={`G${i+1}`} 
+                                    data={chartData.filter(d => d[`interval_${i}`] > 0).map(d => ({ time: d.time, interval: d[`interval_${i}`] }))} 
+                                    fill={COLORS[i % COLORS.length]} 
+                                  />
+                                ))}
+                              </ScatterChart>
+                            </ResponsiveContainer>
+                          </ChartCard>
+                        )}
+
+                        {fullscreenChart === 'actions' && (
+                          <ChartCard 
+                            title={t('actionSequence')} 
+                            icon={<ListTree size={14} className="text-indigo-500" />}
+                            onFullscreen={() => setFullscreenChart(null)}
+                            isFullscreen
+                          >
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="time" />
+                                <YAxis domain={[0, 4]} />
+                                <Tooltip 
+                                  labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                                  formatter={(val: any) => {
+                                    const v = Number(val);
+                                    const label = v === 1 ? 'DOWN' : v === 2 ? 'MOVE' : v === 3 ? 'UP' : 'CANCEL';
+                                    return [label, t('action')];
+                                  }}
+                                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
+                                {gestures.map((_, i) => (
+                                  <Line 
+                                    key={i}
+                                    type="stepAfter" 
+                                    dataKey={`actionValue_${i}`} 
+                                    stroke={COLORS[i % COLORS.length]} 
+                                    strokeWidth={3} 
+                                    dot={false}
+                                    connectNulls
+                                  />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </ChartCard>
+                        )}
+                      </div>
+                    </TransformComponent>
+                  </div>
+                )}
+              </TransformWrapper>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+interface ChartCardProps {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  onFullscreen: () => void;
+  isFullscreen?: boolean;
+}
+
+const ChartCard: React.FC<ChartCardProps> = ({ title, icon, children, onFullscreen, isFullscreen }) => {
+  const { t } = useTranslation();
+  
+  return (
+    <div className={cn(
+      "bg-white rounded-xl border border-slate-200 shadow-sm min-w-0 flex flex-col",
+      isFullscreen ? "w-full h-full border-none shadow-none" : "p-4"
+    )}>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wider flex items-center gap-2">
+          {icon}
+          {title}
+        </h3>
+        {!isFullscreen && (
+          <button 
+            onClick={onFullscreen}
+            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
+            title={t('fullScreen')}
+          >
+            <Maximize2 size={16} />
+          </button>
+        )}
+      </div>
+      <div className={cn("w-full", isFullscreen ? "flex-1" : "h-48")}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const ZoomControls = ({ utils }: { utils: any }) => {
+  const { zoomIn, zoomOut, resetTransform } = utils;
+  const { t } = useTranslation();
+
+  return (
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 p-2 bg-white/90 backdrop-blur shadow-xl rounded-2xl border border-slate-200">
+      <button 
+        onClick={() => zoomIn()}
+        className="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition-all active:scale-90"
+        title={t('zoomIn') || 'Zoom In'}
+      >
+        <ZoomIn size={20} />
+      </button>
+      <button 
+        onClick={() => zoomOut()}
+        className="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition-all active:scale-90"
+        title={t('zoomOut') || 'Zoom Out'}
+      >
+        <ZoomOut size={20} />
+      </button>
+      <div className="w-px h-6 bg-slate-200 mx-1" />
+      <button 
+        onClick={() => resetTransform()}
+        className="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition-all active:scale-90"
+        title={t('reset') || 'Reset'}
+      >
+        <RotateCcw size={20} />
+      </button>
+      <div className="flex items-center gap-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-l border-slate-200 ml-1">
+        <Hand size={14} />
+        <span>{t('panToMove') || 'Drag to Pan'}</span>
+      </div>
     </div>
   );
 };

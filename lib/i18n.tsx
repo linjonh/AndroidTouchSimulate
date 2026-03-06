@@ -88,6 +88,12 @@ const translations: Translations = {
   sizeBaseDesc: { zh: '触摸点的初始或平均面积大小', en: 'Initial or average touch area size' },
   sizeVarDesc: { zh: '触摸点面积随进度的线性变化量', en: 'Linear change in touch area size over progress' },
   linkSizeAndPressureDesc: { zh: '开启后，触摸面积将随压力大小自动缩放', en: 'When enabled, touch area scales automatically with pressure' },
+  fullScreen: { zh: '全屏查看', en: 'Full Screen' },
+  exitFullScreen: { zh: '退出全屏', en: 'Exit Full Screen' },
+  zoomIn: { zh: '放大', en: 'Zoom In' },
+  zoomOut: { zh: '缩小', en: 'Zoom Out' },
+  reset: { zh: '重置', en: 'Reset' },
+  panToMove: { zh: '拖拽移动', en: 'Drag to Pan' },
 
   saveToHistory: { zh: '保存到历史记录', en: 'Save to History' },
   download: { zh: '下载', en: 'Download' },

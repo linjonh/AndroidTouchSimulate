@@ -393,7 +393,7 @@ console.log("Generated simulated_touch.json");
       setPressureJitter(0);
     } else if (type === 'click') {
       setStartX(540); setStartY(1200);
-      setEndX(541); setEndY(1201);
+      setEndX(543); setEndY(1204); // Distance approx 5px
       setCurveX(540);
       setDuration(80);
       setSteps(5);
