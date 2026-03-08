@@ -107,6 +107,7 @@ const translations: Translations = {
   pressureProfile: { zh: '压力分布', en: 'Pressure Profile' },
   sizeProfile: { zh: '大小分布', en: 'Size Profile' },
   velocityProfile: { zh: '速度分布 (px/ms)', en: 'Velocity Profile (px/ms)' },
+  accelerationProfile: { zh: '加速度分布 (px/ms²)', en: 'Acceleration Profile (px/ms²)' },
   coordinateDynamics: { zh: '坐标动态 (X/Y)', en: 'Coordinate Dynamics (X/Y)' },
   orientationProfile: { zh: '方向角分布', en: 'Orientation Profile' },
   
@@ -115,6 +116,8 @@ const translations: Translations = {
   realismConclusion: { zh: '评估结论', en: 'Assessment Conclusion' },
   realismScore: { zh: '真实度得分', en: 'Realism Score' },
   samplingRate: { zh: '采样率', en: 'Sampling Rate' },
+  distribution: { zh: '分布情况', en: 'Distribution' },
+  timeSeries: { zh: '时间序列', en: 'Time Series' },
   smoothness: { zh: '轨迹平滑度', en: 'Trajectory Smoothness' },
   pressureConsistency: { zh: '压力一致性', en: 'Pressure Consistency' },
   lifecycleIntegrity: { zh: '生命周期完整性', en: 'Lifecycle Integrity' },

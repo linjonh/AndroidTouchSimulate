@@ -14,7 +14,9 @@ import {
   ReferenceDot,
   ScatterChart,
   Scatter,
-  ZAxis
+  ZAxis,
+  BarChart,
+  Bar
 } from 'recharts';
 import { useTranslation } from '@/lib/i18n';
 import { GestureSequence } from '@/lib/touch-parser';
@@ -38,7 +40,9 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  Hand
+  Hand,
+  TrendingUp,
+  Gauge
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -65,7 +69,7 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
   
   const isMulti = gestures.length > 1;
 
-  const chartData = useMemo(() => {
+  const chartDataResult = useMemo(() => {
     // Collect all unique relative timestamps
     const allTimes = new Set<number>();
     gestures.forEach(g => {
@@ -74,7 +78,7 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
     
     const sortedTimes = Array.from(allTimes).sort((a, b) => a - b);
     
-    return sortedTimes.map(time => {
+    const data = sortedTimes.map(time => {
       const entry: any = { time };
       gestures.forEach((g, gIdx) => {
         const p = g.points.find(p => (p.time - g.startTime) === time);
@@ -91,8 +95,20 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
             const dy = p.y - prev.y;
             const dt = p.time - prev.time;
             if (dt > 0) {
-              entry[`velocity_${gIdx}`] = Number((Math.sqrt(dx * dx + dy * dy) / dt).toFixed(4));
+              const velocity = Math.sqrt(dx * dx + dy * dy) / dt;
+              entry[`velocity_${gIdx}`] = Number(velocity.toFixed(4));
               entry[`interval_${gIdx}`] = dt;
+              
+              const prevPrev = g.points[pIdx - 2];
+              if (prevPrev) {
+                const prevDx = prev.x - prevPrev.x;
+                const prevDy = prev.y - prevPrev.y;
+                const prevDt = prev.time - prevPrev.time;
+                if (prevDt > 0) {
+                  const prevVelocity = Math.sqrt(prevDx * prevDx + prevDy * prevDy) / prevDt;
+                  entry[`acceleration_${gIdx}`] = Number(((velocity - prevVelocity) / dt).toFixed(6));
+                }
+              }
             }
           }
           
@@ -103,7 +119,27 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
       });
       return entry;
     });
+
+    // Calculate interval distribution for bar chart
+    const intervalCounts: Record<number, number> = {};
+    data.forEach(d => {
+      gestures.forEach((_, i) => {
+        const interval = d[`interval_${i}`];
+        if (interval > 0) {
+          const rounded = Math.round(interval);
+          intervalCounts[rounded] = (intervalCounts[rounded] || 0) + 1;
+        }
+      });
+    });
+
+    const distribution = Object.entries(intervalCounts)
+      .map(([ms, count]) => ({ ms: Number(ms), count }))
+      .sort((a, b) => a.ms - b.ms);
+
+    return { data, distribution };
   }, [gestures]);
+
+  const { data: chartData, distribution: intervalDistribution } = chartDataResult;
 
   const markers = useMemo(() => {
     const allMarkers: any[] = [];
@@ -398,25 +434,108 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
               onFullscreen={() => setFullscreenChart('timing')}
             >
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                <ScatterChart>
+                <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="time" hide />
-                  <YAxis dataKey="interval" hide />
-                  <ZAxis range={[20, 100]} />
+                  <YAxis domain={['auto', 'auto']} hide />
                   <Tooltip 
-                    cursor={{ strokeDasharray: '3 3' }}
                     labelFormatter={(val) => `${t('time')}: ${val}ms`}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
                   {gestures.map((_, i) => (
-                    <Scatter 
+                    <Line 
                       key={i}
-                      name={`G${i+1}`} 
-                      data={chartData.filter(d => d[`interval_${i}`] > 0).map(d => ({ time: d.time, interval: d[`interval_${i}`] }))} 
-                      fill={COLORS[i % COLORS.length]} 
+                      type="monotone" 
+                      dataKey={`interval_${i}`} 
+                      stroke={COLORS[i % COLORS.length]} 
+                      strokeWidth={2}
+                      dot={{ r: 2, fill: COLORS[i % COLORS.length] }}
+                      connectNulls
                     />
                   ))}
-                </ScatterChart>
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            {/* Velocity Chart */}
+            <ChartCard 
+              title={t('velocityProfile')} 
+              icon={<TrendingUp size={14} className="text-emerald-500" />}
+              onFullscreen={() => setFullscreenChart('velocity')}
+            >
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <AreaChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="time" hide />
+                  <YAxis domain={[0, 'auto']} hide />
+                  <Tooltip 
+                    labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                  {gestures.map((_, i) => (
+                    <Area 
+                      key={i}
+                      type="monotone" 
+                      dataKey={`velocity_${i}`} 
+                      stroke={COLORS[i % COLORS.length]} 
+                      fill={COLORS[i % COLORS.length]} 
+                      fillOpacity={0.1}
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls
+                    />
+                  ))}
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            {/* Acceleration Chart */}
+            <ChartCard 
+              title={t('accelerationProfile')} 
+              icon={<Gauge size={14} className="text-orange-500" />}
+              onFullscreen={() => setFullscreenChart('acceleration')}
+            >
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="time" hide />
+                  <YAxis domain={['auto', 'auto']} hide />
+                  <Tooltip 
+                    labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                  {gestures.map((_, i) => (
+                    <Line 
+                      key={i}
+                      type="monotone" 
+                      dataKey={`acceleration_${i}`} 
+                      stroke={COLORS[i % COLORS.length]} 
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            {/* Interval Distribution Chart */}
+            <ChartCard 
+              title={t('distribution') || 'Interval Distribution'} 
+              icon={<BarChart3 size={14} className="text-amber-600" />}
+              onFullscreen={() => setFullscreenChart('timing')}
+            >
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <BarChart data={intervalDistribution}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="ms" hide />
+                  <YAxis hide />
+                  <Tooltip 
+                    cursor={{ fill: '#f8fafc' }}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Bar dataKey="count" fill="#f59e0b" radius={[2, 2, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </ChartCard>
           </div>
@@ -668,26 +787,117 @@ export const GestureDetails: React.FC<GestureDetailsProps> = ({ gestures }) => {
                             onFullscreen={() => setFullscreenChart(null)}
                             isFullscreen
                           >
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full h-full">
+                              <div className="flex flex-col">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-4">{t('timeSeries') || 'Time Series'} (ms)</h4>
+                                <div className="flex-1">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData}>
+                                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                      <XAxis dataKey="time" />
+                                      <YAxis domain={['auto', 'auto']} />
+                                      <Tooltip 
+                                        labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                      />
+                                      {gestures.map((_, i) => (
+                                        <Line 
+                                          key={i}
+                                          type="monotone" 
+                                          dataKey={`interval_${i}`} 
+                                          stroke={COLORS[i % COLORS.length]} 
+                                          strokeWidth={3}
+                                          dot={{ r: 4, fill: COLORS[i % COLORS.length] }}
+                                          connectNulls
+                                        />
+                                      ))}
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                              <div className="flex flex-col border-l border-slate-100">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-4">{t('distribution') || 'Distribution'} (ms)</h4>
+                                <div className="flex-1">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={intervalDistribution}>
+                                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                      <XAxis dataKey="ms" label={{ value: 'ms', position: 'insideBottom', offset: -5 }} />
+                                      <YAxis />
+                                      <Tooltip 
+                                        cursor={{ fill: '#f8fafc' }}
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                      />
+                                      <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                            </div>
+                          </ChartCard>
+                        )}
+
+                        {fullscreenChart === 'velocity' && (
+                          <ChartCard 
+                            title={t('velocityProfile')} 
+                            icon={<TrendingUp size={14} className="text-emerald-500" />}
+                            onFullscreen={() => setFullscreenChart(null)}
+                            isFullscreen
+                          >
                             <ResponsiveContainer width="100%" height="100%">
-                              <ScatterChart>
+                              <AreaChart data={chartData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                 <XAxis dataKey="time" />
-                                <YAxis dataKey="interval" />
-                                <ZAxis range={[50, 200]} />
+                                <YAxis domain={[0, 'auto']} />
                                 <Tooltip 
-                                  cursor={{ strokeDasharray: '3 3' }}
                                   labelFormatter={(val) => `${t('time')}: ${val}ms`}
                                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                 />
                                 {gestures.map((_, i) => (
-                                  <Scatter 
+                                  <Area 
                                     key={i}
-                                    name={`G${i+1}`} 
-                                    data={chartData.filter(d => d[`interval_${i}`] > 0).map(d => ({ time: d.time, interval: d[`interval_${i}`] }))} 
+                                    type="monotone" 
+                                    dataKey={`velocity_${i}`} 
+                                    stroke={COLORS[i % COLORS.length]} 
                                     fill={COLORS[i % COLORS.length]} 
+                                    fillOpacity={0.1}
+                                    strokeWidth={3}
+                                    dot={false}
+                                    connectNulls
                                   />
                                 ))}
-                              </ScatterChart>
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </ChartCard>
+                        )}
+
+                        {fullscreenChart === 'acceleration' && (
+                          <ChartCard 
+                            title={t('accelerationProfile')} 
+                            icon={<Gauge size={14} className="text-orange-500" />}
+                            onFullscreen={() => setFullscreenChart(null)}
+                            isFullscreen
+                          >
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="time" />
+                                <YAxis domain={['auto', 'auto']} />
+                                <Tooltip 
+                                  labelFormatter={(val) => `${t('time')}: ${val}ms`}
+                                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
+                                {gestures.map((_, i) => (
+                                  <Line 
+                                    key={i}
+                                    type="monotone" 
+                                    dataKey={`acceleration_${i}`} 
+                                    stroke={COLORS[i % COLORS.length]} 
+                                    strokeWidth={3}
+                                    dot={false}
+                                    connectNulls
+                                  />
+                                ))}
+                              </LineChart>
                             </ResponsiveContainer>
                           </ChartCard>
                         )}
